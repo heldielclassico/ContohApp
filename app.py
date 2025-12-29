@@ -1,45 +1,66 @@
+import streamlit as st
 import assemblyai as aai
+import time
 
-# 1. Konfigurasi API Key
-# Dapatkan di https://www.assemblyai.com/dashboard
-aai.settings.api_key = "f998640f0b7043a6b0f3e949cef8ffac"
+# Konfigurasi Halaman
+st.set_page_config(page_title="YouTube Summarizer AI", page_icon="🎥", layout="centered")
 
-def summarize_youtube_video(video_url):
-    print(f"Sedang memproses video: {video_url}")
-    
-    # 2. Inisialisasi Transcriber
-    transcriber = aai.Transcriber()
+# --- UI Header ---
+st.title("🎥 YouTube Video Summarizer")
+st.markdown("Ringkas isi video YouTube dalam hitungan detik menggunakan AI.")
+st.divider()
 
-    # 3. Proses Transkripsi
-    # AssemblyAI akan otomatis menggunakan yt-dlp untuk ambil audio dari YouTube
-    transcript = transcriber.transcribe(video_url)
+# --- Sidebar untuk Konfigurasi ---
+with st.sidebar:
+    st.header("Konfigurasi")
+    api_key = st.text_input("Masukkan AssemblyAI API Key", type="password")
+    st.info("Dapatkan API Key gratis di [assemblyai.com](https://www.assemblyai.com)")
 
-    if transcript.status == aai.TranscriptStatus.error:
-        return f"Transkripsi Gagal: {transcript.error}"
+# --- Input Utama ---
+video_url = st.text_input("Tempel link YouTube di sini:", placeholder="https://www.youtube.com/watch?v=...")
 
-    # 4. Membuat Ringkasan dengan LeMUR
-    # Kita meminta AI untuk meringkas poin-poin penting
-    prompt = "Berikan ringkasan singkat dalam bahasa Indonesia dari video ini, fokus pada poin-poin utama."
-    
-    result = transcript.lemur.summarize(
-        context=prompt,
-        answer_format="bullet points"
-    )
+if st.button("Mulai Ringkas ✨"):
+    if not api_key:
+        st.error("Silakan masukkan API Key terlebih dahulu di sidebar!")
+    elif not video_url:
+        st.warning("Silakan masukkan URL video YouTube!")
+    else:
+        try:
+            with st.status("Sedang memproses video...", expanded=True) as status:
+                st.write("Mengambil audio dari YouTube...")
+                aai.settings.api_key = api_key
+                transcriber = aai.Transcriber()
 
-    return {
-        "text_lengkap": transcript.text,
-        "ringkasan": result.response
-    }
+                st.write("Mentranskripsi suara ke teks (AI sedang mendengarkan)...")
+                transcript = transcriber.transcribe(video_url)
 
-# --- Contoh Penggunaan ---
-URL_VIDEO = "https://www.youtube.com/watch?v=zD_4R6-YV8Q" # Ganti dengan URL video Anda
+                if transcript.status == aai.TranscriptStatus.error:
+                    st.error(f"Gagal: {transcript.error}")
+                else:
+                    st.write("Membuat ringkasan poin-poin penting...")
+                    # LeMUR Summarization
+                    prompt = "Berikan ringkasan poin-poin utama dari video ini dalam Bahasa Indonesia yang mudah dipahami."
+                    summary_result = transcript.lemur.summarize(context=prompt)
+                    
+                    status.update(label="Selesai!", state="complete", expanded=False)
 
-hasil = summarize_youtube_video(URL_VIDEO)
+            # --- Menampilkan Hasil ---
+            st.success("✅ Berhasil Diringkas!")
+            
+            tab1, tab2 = st.tabs(["📋 Ringkasan AI", "📝 Transkrip Lengkap"])
+            
+            with tab1:
+                st.subheader("Poin-Poin Utama")
+                st.markdown(summary_result.response)
+            
+            with tab2:
+                st.subheader("Teks Asli Video")
+                st.write(transcript.text)
+                st.download_button("Download Transkrip", transcript.text, file_name="transkrip.txt")
 
-if isinstance(hasil, dict):
-    print("\n=== RINGKASAN VIDEO ===")
-    print(hasil['ringkasan'])
-    print("\n=== SEBAGIAN TEKS TRANSKRIP ===")
-    print(hasil['text_lengkap'][:500] + "...") 
-else:
-    print(hasil)
+        except Exception as e:
+            st.error(f"Terjadi kesalahan teknis: {str(e)}")
+
+# --- Footer ---
+st.divider()
+st.caption("Dibuat dengan Python, Streamlit, dan AssemblyAI")
