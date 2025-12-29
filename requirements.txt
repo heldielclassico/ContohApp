@@ -3,5 +3,8 @@ fuzzywuzzy
 python-Levenshtein
 
 #gensim
-gensim==4.3.2
-nltk==3.8.1
+gensim
+streamlit
+nltk
+
+
